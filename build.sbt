@@ -19,25 +19,34 @@ name         := "spectroscopy"
 scalaVersion := "2.11.7"
 
 scalacOptions ++= Seq(
-  "-Xfatal-warnings",
-  "-Xlint",
   "-deprecation",
+  "-encoding", "UTF-8",
   "-feature",
-  "-language:_",
-  "-unchecked"
+  "-language:implicitConversions", "-language:higherKinds", "-language:postfixOps",
+  "-unchecked",
+  "-Xfatal-warnings",
+  "-Yinline-warnings",
+  "-Yno-adapted-args",
+  "-Ywarn-dead-code",
+  "-Ywarn-unused-import",
+  "-Ywarn-value-discard",
+  "-Xfuture"
 )
 
 val monocleVersion = "1.2.0"
+val scalazVersion  = "7.2.0"
 
 libraryDependencies ++= Seq(
   "com.github.julien-truffaut"  %%  "monocle-core"    % monocleVersion,
   "com.github.julien-truffaut"  %%  "monocle-generic" % monocleVersion,
+  "com.github.julien-truffaut"  %%  "monocle-law"     % monocleVersion,
   "com.github.julien-truffaut"  %%  "monocle-macro"   % monocleVersion,
-  "com.github.julien-truffaut"  %%  "monocle-state"   % monocleVersion,
   "com.github.julien-truffaut"  %%  "monocle-refined" % monocleVersion,
-  "org.scalaz"                  %%  "scalaz-core"     % "7.2.0"
+  "com.github.julien-truffaut"  %%  "monocle-state"   % monocleVersion,
+  "org.scalaz"                  %%  "scalaz-core"     % scalazVersion,
+  "org.typelevel"               %%  "discipline"      % "0.4"
 )
 
 libraryDependencies ++= Seq(
-  "com.github.julien-truffaut"  %%  "monocle-law"     % monocleVersion % "test"
+  "org.scalatest"               %%  "scalatest"       % "3.0.0-M7"     % "test"
 )
