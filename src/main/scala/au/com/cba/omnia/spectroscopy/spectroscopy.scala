@@ -31,6 +31,8 @@ import scalaz.{\/-}
 package object spectroscopy {
   type Scope[S, A] = PScope[S, S, A, A]
 
+  type EPrism[E, S, A] = EPPrism[E, S, S, A, A]
+
   implicit class RichIso[S, T, A, B](iso: PIso[S, T, A, B]) {
     /** View a PIso as a [[PScope]] */
     def asScope: PScope[S, T, A, B] =
@@ -96,6 +98,9 @@ package object spectroscopy {
      *    (1) === (2) from the definition of _put.
      *    (2) === (3) from the definition of _put.
      */
+
+    def asEPrism =
+      iso.asPrism.asEPrism
 
     /** Compose a PIso with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]) =
@@ -262,6 +267,14 @@ package object spectroscopy {
     /** View a PPrism as a [[PScope]] */
     def asScope =
       PScope.id[S, T] composePrism prism
+
+    /** View a PPrism as a [[EPPrism]] */
+    def asEPrism =
+      EPPrism[Unit, S, T, A, B](
+        prism.getOrModify(_).leftMap(() -> _)
+      )(
+        prism.reverseGet(_)
+      )
 
     /** Compose a PPrism with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]): POptional[S, T, U, V] =
