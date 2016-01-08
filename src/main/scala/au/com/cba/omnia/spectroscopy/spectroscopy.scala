@@ -16,13 +16,23 @@
 
 package au.com.cba.omnia
 
-import monocle.{PIso, PLens, PPrism}
+import monocle.{
+  Fold,
+  Getter,
+  PIso,
+  PLens,
+  POptional,
+  PPrism,
+  PTraversal,
+  PSetter
+}
 import scalaz.{\/-}
 
 package object spectroscopy {
   type Scope[S, A] = PScope[S, S, A, A]
 
   implicit class RichIso[S, T, A, B](iso: PIso[S, T, A, B]) {
+    /** View a PIso as a [[PScope]] */
     def asScope: PScope[S, T, A, B] =
       PScope[S, T, A, B](
         s => \/-(iso.get(s))
@@ -87,14 +97,17 @@ package object spectroscopy {
      *    (2) === (3) from the definition of _put.
      */
 
+    /** Compose a PIso with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]) =
       iso.asLens composeScope other
   }
 
   implicit class RichLens[S, T, A, B](lens: PLens[S, T, A, B]) {
+    /** View a PLens as a [[PScope]] */
     def asScope =
       lens composeScope PScope.id[A, B]
 
+    /** Compose a PLens with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]) =
       PScope[S, T, U, V](
         s => other.getOrModify(lens.get(s)).leftMap(lens.set(_)(s))
@@ -246,7 +259,42 @@ package object spectroscopy {
   }
 
   implicit class RichPrism[S, T, A, B](prism: PPrism[S, T, A, B]) {
+    /** View a PPrism as a [[PScope]] */
     def asScope =
       PScope.id[S, T] composePrism prism
+
+    /** Compose a PPrism with a [[PScope]] */
+    def composeScope[U, V](other: PScope[A, B, U, V]): POptional[S, T, U, V] =
+      prism composeOptional other.asOptional
+  }
+
+  implicit class RichOptional[S, T, A, B](optional: PPrism[S, T, A, B]) {
+    /** Compose a POptional with a [[PScope]] */
+    def composeScope[U, V](other: PScope[A, B, U, V]): POptional[S, T, U, V] =
+      optional composeOptional other.asOptional
+  }
+
+  implicit class RichTraversal[S, T, A, B](traversal: PTraversal[S, T, A, B]) {
+    /** Compose a PTraversal with a [[PScope]] */
+    def composeScope[U, V](other: PScope[A, B, U, V]): PTraversal[S, T, U, V] =
+      traversal composeTraversal other.asTraversal
+  }
+
+  implicit class RichFold[S, A](fold: Fold[S, A]) {
+    /** Compose a Fold with a [[PScope]] */
+    def composeScope[B, U, V](other: PScope[A, B, U, V]): Fold[S, U] =
+      fold composeFold other.asFold
+  }
+
+  implicit class RichGetter[S, A](getter: Getter[S, A]) {
+    /** Compose a Getter with a [[PScope]] */
+    def composeScope[B, U, V](other: PScope[A, B, U, V]): Fold[S, U] =
+      getter.asFold composeFold other.asFold
+  }
+
+  implicit class RichSetter[S, T, A, B](setter: PSetter[S, T, A, B]) {
+    /** Compose a PSetter with a [[PScope]] */
+    def composeScope[U, V](other: PScope[A, B, U, V]): PSetter[S, T, U, V] =
+      setter composeSetter other.asSetter
   }
 }

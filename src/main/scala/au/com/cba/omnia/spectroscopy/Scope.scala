@@ -18,41 +18,170 @@ package au.com.cba.omnia.spectroscopy
 
 import scala.language.higherKinds
 
-import monocle.{PIso, PLens, PPrism}
+import monocle.{
+  Fold,
+  Getter,
+  Iso,
+  PIso,
+  PLens,
+  POptional,
+  PPrism,
+  PSetter,
+  PTraversal
+}
 import scalaz.{\/, Applicative}
 
+/**
+ * A [[PScope]] can be seen as a pair of functions:
+ *  - `getOrModify: S => T \/ A`
+ *  - `put: B => S => T`
+ *
+ * A [[PScope]] could also be defined as a stronger POptional where the
+ * setter method cannot fail.
+ * 
+ * Typically a [[PScope]] or [[Scope]] corresponds to the composition of a
+ * PLens and a PPrism, thus encoding the relation between a Product of
+ * CoProduct types (e.g. a map with case class values) and one of its elements.
+ *
+ * [[PScope]] stands for Polymorphic Spectroscope as its set and modify methods
+ * change a type `A` to `B` and `S` to `T`.
+ * [[Scope]] is a type alias for [[PScope]] where the type of target cannot be
+ * modified:
+ * {{{
+ * type Scope[S, A] = PScope[S, S, A, A]
+ * }}}
+ *
+ * A [[PScope]] is also a valid Fold, POptional, PTraversal, and
+ * PSetter.
+ *
+ * @see [[au.com.cba.omnia.spectroscopy.law.ScopeLaws]]
+ *
+ * @tparam S the source of a [[PScope]]
+ * @tparam T the modified source of a [[PScope]]
+ * @tparam A the target of a [[PScope]]
+ * @tparam B the modified target of a [[PScope]]
+ *
+ */
 abstract class PScope[S, T, A, B] extends Serializable { self =>
+  /** Get the target of a [[PScope]] or return the original value while
+   *  allowing the type to change if it does not match */
   def getOrModify(s: S): T \/ A
 
-  def put(b: B)(s: S): T
+  /** Put polymorphically the target of a [[PScope]] with a value */
+  def put(b: B): S => T
 
+  /** Get the target of a [[PScope]] or nothing if there is no target */
   def getOption(s: S): Option[A]
 
-  def modify(f: A => B)(s: S): T
+  /** Modify polymorphically the target of a [[PScope]] with a function */
+  def modify(f: A => B): S => T
 
+  /** Modify polymorphically the target of a [[PScope]] with an Applicative
+   *  function */
   def modifyF[F[_]: Applicative](f: A => F[B])(s: S): F[T]
 
-  @inline final def set(b: B)(s: S): T =
-    modify(_ => b)(s)
+  /** Set polymorphically the target of a [[PScope]] using a function */
+  @inline final def set(b: B): S => T =
+    modify(_ => b)
 
-  @inline final def modifyOption(f: A => B)(s: S): Option[T] =
-    getOption(s).map(a => put(f(a))(s))
+  /** 
+   *  Modify polymorphically the target of a [[PScope]] with a function.
+   *  Return nothing if the [[PScope]] is not matching
+   */
+  @inline final def modifyOption(f: A => B): S => Option[T] =
+    s => getOption(s).map(a => put(f(a))(s))
 
-  @inline final def setOption(b: B)(s: S): Option[T] =
-    modifyOption(_ => b)(s)
+  /**
+   * Set polymorphically the target of a [[PScope]] with a value.
+   * Return nothing if the [[PScope]] is not matching.
+   */
+  @inline final def setOption(b: B): S => Option[T] =
+    modifyOption(_ => b)
 
+  /** Check if a [[PScope]] has a target */
   @inline final def isMatching(s: S): Boolean =
     getOption(s).isDefined
 
-  def composePrism[U, V](other: PPrism[A, B, U, V]): PScope[S, T, U, V] =
+  /** Join two [[PScope]] with the same target */
+  @inline final def choice[S1, T1](other: PScope[S1, T1, A, B]): PScope[S \/ S1, T \/ T1, A, B] =
+    PScope[S \/ S1, T \/ T1, A, B](
+      _.fold(
+        self.getOrModify(_) .leftMap(\/.left),
+        other.getOrModify(_).leftMap(\/.right)
+      )
+    )(
+      b => _.bimap(self.put(b), other.put(b))
+    )
+
+  @inline final def first[C]: PScope[(S, C), (T, C), (A, C), (B, C)] =
+    PScope[(S, C), (T, C), (A, C), (B, C)]{
+      case (s, c) => getOrModify(s).bimap(_ -> c, _ -> c)
+    }{
+      case (b, c) => {
+        case (s, _) => (put(b)(s), c)
+      }
+    }
+
+  @inline final def second[C]: PScope[(C, S), (C, T), (C, A), (C, B)] =
+    PScope[(C, S), (C, T), (C, A), (C, B)]{
+      case (c, s) => getOrModify(s).bimap(c -> _, c -> _)
+    }{
+      case (c, b) => {
+        case (_, s) => (c, put(b)(s))
+      }
+    }
+
+  /************************************************************/
+  /** Compose methods between a [[PScope]] and another Optics */
+  /************************************************************/
+
+  /** Compose a [[PScope]] with a PIso */
+  @inline final def composeIso[U, V](
+    other: PIso[A, B, U, V]
+  ): PScope[S, T, U, V] =
+    self composePrism other.asPrism
+
+  /** Compose a [[PScope]] with a PPrism */
+  @inline final def composePrism[U, V](
+    other: PPrism[A, B, U, V]
+  ): PScope[S, T, U, V] =
     PScope[S, T, U, V](
       s => getOrModify(s).flatMap(other.getOrModify(_).leftMap(put(_)(s)))
     )(
       u => s => put(other.reverseGet(u))(s)
     )
 
-  def composeIso[U, V](other: PIso[A, B, U, V]): PScope[S, T, U, V] =
-    self composePrism other.asPrism
+  /** Compose a [[PScope]] with a POptional */
+  @inline final def composeOptional[U, V](
+    other: POptional[A, B, U, V]
+  ): POptional[S, T, U, V] =
+    asOptional composeOptional other
+
+  /** Compose a [[PScope]] with a Fold */
+  @inline final def composeFold[C](other: Fold[A, C]): Fold[S, C] =
+    asFold composeFold other
+
+  /** Compose a [[PScope]] with a Getter */
+  @inline final def composeGetter[C](other: Getter[A, C]): Fold[S, C] =
+    asFold composeGetter other
+
+  /** Compose a [[PScope]] with a PSetter */
+  @inline final def composeSetter[U, V](
+    other: PSetter[A, B, U, V]
+  ): PSetter[S, T, U, V] =
+    asSetter composeSetter other
+
+  /** Compose a [[PScope]] with a PTraversal */
+  @inline final def composeTraversal[U, V](
+    other: PTraversal[A, B, U, V]
+  ): PTraversal[S, T, U, V] =
+    asTraversal composeTraversal other
+
+  /** Compose a [[PScope]] with a PLens */
+  @inline final def composeLens[U, V](
+    other: PLens[A, B, U, V]
+  ): POptional[S, T, U, V] =
+    asOptional composeOptional other.asOptional
 
   /*
    *  Assuming that self satisfies the ScopeLaws getOrModifyPut,
@@ -182,12 +311,39 @@ abstract class PScope[S, T, A, B] extends Serializable { self =>
    *    (2) === (3) from the definition of _put.
    *    (3) === (4) from ScopeLaws.putIdempotent.
    */
+
+  /******************************************************************/
+  /** Transformation methods to view a [[PScope]] as another Optics */
+  /******************************************************************/
+
+  /** View a [[PScope]] as a POptional */
+  @inline final def asOptional: POptional[S, T, A, B] =
+    POptional[S, T, A, B](getOrModify(_))(set(_))
+
+  /** View a [[PScope]] as a Fold */
+  @inline final def asFold: Fold[S, A] =
+    asOptional asFold
+
+  /** View a [[PScope]] as a PSetter */
+  @inline final def asSetter: PSetter[S, T, A, B] =
+    new PSetter[S, T, A, B] {
+      def modify(f: A => B): S => T =
+        self.modify(f)
+
+      def set(b: B): S => T =
+        self.put(b)
+    }
+
+  /** View a [[PScope]] as a PTraversal */
+  @inline final def asTraversal: PTraversal[S, T, A, B] =
+    asOptional asTraversal
 }
 
 object PScope {
   def id[S, T]: PScope[S, T, S, T] =
     PIso.id[S, T].asScope
 
+  /** Create a [[PScope]] using the canonical functions: getOrModify and put */
   def apply[S, T, A, B](
     _getOrModify: S => T \/ A
   )(
@@ -196,14 +352,14 @@ object PScope {
     def getOrModify(s: S): T \/ A =
       _getOrModify(s)
 
-    def put(b: B)(s: S): T =
-      _put(b)(s)
+    def put(b: B): S => T =
+      _put(b)
 
     def getOption(s: S): Option[A] =
       getOrModify(s).toOption
 
-    def modify(f: A => B)(s: S): T =
-      getOrModify(s).fold(identity, a => put(f(a))(s))
+    def modify(f: A => B): S => T =
+      s => getOrModify(s).fold(identity, a => put(f(a))(s))
 
     def modifyF[F[_]: Applicative](f: A => F[B])(s: S): F[T] =
       getOrModify(s).fold(
@@ -336,4 +492,17 @@ object PScope {
      *    (4) === (5) from ScopeLaws.getOrModifyPut
      */
   }
+}
+
+object Scope {
+  def id[A]: Scope[A, A] =
+    Iso.id[A].asScope
+
+  /** Alias for [[PScope]] apply restricted to monomorphic update */
+  def apply[S, A](_getOption: S => Option[A])(_put: A => S => S): Scope[S, A] =
+    PScope[S, S, A, A](
+      s => _getOption(s).fold[S \/ A](\/.left(s))(\/.right)
+    )(
+      _put
+    )
 }

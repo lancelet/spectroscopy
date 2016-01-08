@@ -16,6 +16,7 @@
 
 package au.com.cba.omnia.spectroscopy
 
+import monocle.law.discipline.{OptionalTests, SetterTests}
 import org.scalacheck.Arbitrary, Arbitrary._
 import scalaz._, Scalaz._
 
@@ -87,6 +88,134 @@ class ScopeSpec extends SpectroscopySuite {
     ScopeTests(
       tuple2Field2[Int, (Boolean, String)].second.asScope
         composeIso tuple2Reverse[Boolean, String].reverse
+    )
+  )
+
+  // Scope asOptional
+  checkAll("tuple2Reverse.reverse.asScope.asOptional",
+    OptionalTests(tuple2Reverse[Int, String].reverse.asScope.asOptional)
+  )
+  checkAll("tuple2Field1.first.asScope.asOptional",
+    OptionalTests(tuple2Field1[Int, String].first.asScope.asOptional)
+  )
+  checkAll("tuple2Field2.second.asScope.asOptional",
+    OptionalTests(tuple2Field2[Int, String].second.asScope.asOptional)
+  )
+  checkAll("some.asScope.asOptional",
+    OptionalTests(some[Int].asScope.asOptional)
+  )
+  checkAll("stdLeft.asScope.asOptional",
+    OptionalTests(stdLeft[Int, String].asScope.asOptional)
+  )
+  checkAll("(tuple2Field1.first.asScope composeIso tuple2Reverse.reverse asOptional)",
+    OptionalTests(
+      tuple2Field1[(Int, Boolean), String].first.asScope
+        composeIso tuple2Reverse[Int, Boolean].reverse
+        asOptional
+    )
+  )
+  checkAll("(tuple2Field2.second.asScope composeIso tuple2Reverse.reverse asOptional)",
+    OptionalTests(
+      tuple2Field2[Int, (Boolean, String)].second.asScope
+        composeIso tuple2Reverse[Boolean, String].reverse
+        asOptional
+    )
+  )
+
+  // Scope asSetter
+  checkAll("tuple2Reverse.reverse.asScope.asSetter",
+    SetterTests(tuple2Reverse[Int, String].reverse.asScope.asSetter)
+  )
+  checkAll("tuple2Field1.first.asScope.asSetter",
+    SetterTests(tuple2Field1[Int, String].first.asScope.asSetter)
+  )
+  checkAll("tuple2Field2.second.asScope.asSetter",
+    SetterTests(tuple2Field2[Int, String].second.asScope.asSetter)
+  )
+  checkAll("some.asScope.asSetter",
+    SetterTests(some[Int].asScope.asSetter)
+  )
+  checkAll("stdLeft.asScope.asSetter",
+    SetterTests(stdLeft[Int, String].asScope.asSetter)
+  )
+  checkAll("(tuple2Field1.first.asScope composeIso tuple2Reverse.reverse asSetter)",
+    SetterTests(
+      tuple2Field1[(Int, Boolean), String].first.asScope
+        composeIso tuple2Reverse[Int, Boolean].reverse
+        asSetter
+    )
+  )
+  checkAll("(tuple2Field2.second.asScope composeIso tuple2Reverse.reverse asSetter)",
+    SetterTests(
+      tuple2Field2[Int, (Boolean, String)].second.asScope
+        composeIso tuple2Reverse[Boolean, String].reverse
+        asSetter
+    )
+  )
+
+  // Scope first
+  checkAll("tuple2Reverse.reverse.asScope.first",
+    ScopeTests(tuple2Reverse[Int, String].reverse.asScope.first[Char])
+  )
+  checkAll("tuple2Field1.first.asScope.first",
+    ScopeTests(tuple2Field1[Int, String].first.asScope.first[Char])
+  )
+  checkAll("tuple2Field2.second.asScope.first",
+    ScopeTests(tuple2Field2[Int, String].second.asScope.first[Char])
+  )
+  checkAll("some.asScope.first",
+    ScopeTests(some[Int].asScope.first[Char])
+  )
+  checkAll("stdLeft.asScope.first",
+    ScopeTests(stdLeft[Int, String].asScope.first[Char])
+  )
+  checkAll("(tuple2Field1.first.asScope composeIso tuple2Reverse.reverse first)",
+    ScopeTests(
+      (
+        tuple2Field1[(Int, Boolean), String].first.asScope
+          composeIso tuple2Reverse[Int, Boolean].reverse
+      ).first[Char]
+    )
+  )
+  checkAll("(tuple2Field2.second.asScope composeIso tuple2Reverse.reverse first)",
+    ScopeTests(
+      (
+        tuple2Field2[Int, (Boolean, String)].second.asScope
+          composeIso tuple2Reverse[Boolean, String].reverse
+      ).first[Char]
+    )
+  )
+
+  // Scope second[Char]
+  checkAll("tuple2Reverse.reverse.asScope.second",
+    ScopeTests(tuple2Reverse[Int, String].reverse.asScope.second[Char])
+  )
+  checkAll("tuple2Field1.first.asScope.second",
+    ScopeTests(tuple2Field1[Int, String].first.asScope.second[Char])
+  )
+  checkAll("tuple2Field2.second.asScope.second",
+    ScopeTests(tuple2Field2[Int, String].second.asScope.second[Char])
+  )
+  checkAll("some.asScope.second",
+    ScopeTests(some[Int].asScope.second[Char])
+  )
+  checkAll("stdLeft.asScope.second",
+    ScopeTests(stdLeft[Int, String].asScope.second[Char])
+  )
+  checkAll("(tuple2Field1.first.asScope composeIso tuple2Reverse.reverse second)",
+    ScopeTests(
+      (
+        tuple2Field1[(Int, Boolean), String].first.asScope
+          composeIso tuple2Reverse[Int, Boolean].reverse
+      ).second[Char]
+    )
+  )
+  checkAll("(tuple2Field2.second.asScope composeIso tuple2Reverse.reverse second)",
+    ScopeTests(
+      (
+        tuple2Field2[Int, (Boolean, String)].second.asScope
+          composeIso tuple2Reverse[Boolean, String].reverse
+      ).second[Char]
     )
   )
 }
