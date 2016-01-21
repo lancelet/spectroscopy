@@ -26,14 +26,20 @@ import monocle.{
   PTraversal,
   PSetter
 }
-import scalaz.{\/-}
+import scalaz.{\/, \/-}
 
 package object spectroscopy {
   type Scope[S, A] = PScope[S, S, A, A]
 
   type EPrism[E, S, A] = EPPrism[E, S, S, A, A]
 
+  type EScope[E, S, A] = EPScope[E, S, S, A, A]
+
   implicit class RichIso[S, T, A, B](iso: PIso[S, T, A, B]) {
+    /** View a PIso as an [[EPPrism]] */
+    def asEPrism =
+      iso.asPrism.asEPrism
+
     /** View a PIso as a [[PScope]] */
     def asScope: PScope[S, T, A, B] =
       PScope[S, T, A, B](
@@ -99,18 +105,35 @@ package object spectroscopy {
      *    (2) === (3) from the definition of _put.
      */
 
-    def asEPrism =
-      iso.asPrism.asEPrism
+    /** View a PIso as an [[EPScope]] */
+    def asEScope =
+      iso.asScope.asEScope
+
+    /** Compose a PIso with an [[EPPrism]] */
+    def composeEPrism[E, U, V](other: EPPrism[E, A, B, U, V]) =
+      iso.asEPrism composeEPrismRight other
 
     /** Compose a PIso with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]) =
       iso.asLens composeScope other
+
+    /** Compose a PIso with an [[EPScope]] */
+    def composeEScope[E, U, V](other: EPScope[E, A, B, U, V]) =
+      iso.asLens composeEScope other
   }
 
   implicit class RichLens[S, T, A, B](lens: PLens[S, T, A, B]) {
     /** View a PLens as a [[PScope]] */
     def asScope =
       lens composeScope PScope.id[A, B]
+
+    /** View a PLens as an [[EPScope]] */
+    def asEScope =
+      lens.asScope.asEScope
+
+    /** Compose a PLens with an [[EPPrism]] */
+    def composeEPrism[E, U, V](other: EPPrism[E, A, B, U, V]) =
+      lens composePrism other.asPrism
 
     /** Compose a PLens with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]) =
@@ -261,14 +284,18 @@ package object spectroscopy {
      *    (5) === (6) from Scope.putIdempotent.
      *    (6) === (7) from the definition of _put.
      */
+
+    /** Compose a PLens with an [[EPScope]] */
+    def composeEScope[E, U, V](other: EPScope[E, A, B, U, V]) =
+      EPScope[E, S, T, U, V](
+        s => other.getOrModifyWithError(lens.get(s)).leftMap(et => et.copy(_2 = lens.set(et._2)(s)))
+      )(
+        v => s => lens.set(other.put(v)(lens.get(s)))(s)
+      )
   }
 
   implicit class RichPrism[S, T, A, B](prism: PPrism[S, T, A, B]) {
-    /** View a PPrism as a [[PScope]] */
-    def asScope =
-      PScope.id[S, T] composePrism prism
-
-    /** View a PPrism as a [[EPPrism]] */
+    /** View a PPrism as an [[EPPrism]] */
     def asEPrism =
       EPPrism[Unit, S, T, A, B](
         prism.getOrModify(_).leftMap(() -> _)
@@ -276,38 +303,110 @@ package object spectroscopy {
         prism.reverseGet(_)
       )
 
+    /** View a PPrism as a [[PScope]] */
+    def asScope =
+      PScope.id[S, T] composePrism prism
+
+    /** View a PPrism as an [[EPScope]] */
+    def asEScope =
+      prism.asScope.asEScope
+
+    /** Compose a PPrism with an [[EPPrism]] */
+    def composeEPrism[E, U, V](other: EPPrism[E, A, B, U, V]): EPPrism[Option[E], S, T, U, V] =
+      prism.asEPrism composeEPrismRight other
+
     /** Compose a PPrism with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]): POptional[S, T, U, V] =
+      prism composeOptional other.asOptional
+
+    /** Compose a PPrism with an [[EPScope]] */
+    def composeEScope[E, U, V](other: EPScope[E, A, B, U, V]): POptional[S, T, U, V] =
       prism composeOptional other.asOptional
   }
 
   implicit class RichOptional[S, T, A, B](optional: PPrism[S, T, A, B]) {
+    /** Compose a POptional with an [[EPPrism]] */
+    def composeEPrism[E, U, V](other: EPPrism[E, A, B, U, V]): POptional[S, T, U, V] =
+      optional composeOptional other.asOptional
+
     /** Compose a POptional with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]): POptional[S, T, U, V] =
+      optional composeOptional other.asOptional
+
+    /** Compose a POptional with an [[EPScope]] */
+    def composeEScope[E, U, V](other: EPScope[E, A, B, U, V]): POptional[S, T, U, V] =
       optional composeOptional other.asOptional
   }
 
   implicit class RichTraversal[S, T, A, B](traversal: PTraversal[S, T, A, B]) {
+    /** Compose a PTraversal with an [[EPPrism]] */
+    def composeEPrism[E, U, V](other: EPPrism[E, A, B, U, V]): PTraversal[S, T, U, V] =
+      traversal composeTraversal other.asTraversal
+
     /** Compose a PTraversal with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]): PTraversal[S, T, U, V] =
+      traversal composeTraversal other.asTraversal
+
+    /** Compose a PTraversal with an [[EPScope]] */
+    def composeEScope[E, U, V](other: EPScope[E, A, B, U, V]): PTraversal[S, T, U, V] =
       traversal composeTraversal other.asTraversal
   }
 
   implicit class RichFold[S, A](fold: Fold[S, A]) {
+    /** Compose a Fold with an [[EPPrism]] */
+    def composeEPrism[E, B, U, V](other: EPPrism[E, A, B, U, V]): Fold[S, U] =
+      fold composeFold other.asFold
+
     /** Compose a Fold with a [[PScope]] */
     def composeScope[B, U, V](other: PScope[A, B, U, V]): Fold[S, U] =
+      fold composeFold other.asFold
+
+    /** Compose a Fold with an [[EPScope]] */
+    def composeEScope[E, B, U, V](other: EPScope[E, A, B, U, V]): Fold[S, U] =
       fold composeFold other.asFold
   }
 
   implicit class RichGetter[S, A](getter: Getter[S, A]) {
+    /** Compose a Getter with an [[EPPrism]] */
+    def composeEPrism[E, B, U, V](other: EPPrism[E, A, B, U, V]): Fold[S, U] =
+      getter.asFold composeFold other.asFold
+
     /** Compose a Getter with a [[PScope]] */
     def composeScope[B, U, V](other: PScope[A, B, U, V]): Fold[S, U] =
+      getter.asFold composeFold other.asFold
+
+    /** Compose a Getter with an [[EPScope]] */
+    def composeEScope[B, U, V](other: PScope[A, B, U, V]): Fold[S, U] =
       getter.asFold composeFold other.asFold
   }
 
   implicit class RichSetter[S, T, A, B](setter: PSetter[S, T, A, B]) {
+    /** Compose a PSetter with an [[EPPrism]] */
+    def composeEPrism[E, U, V](other: EPPrism[E, A, B, U, V]): PSetter[S, T, U, V] =
+      setter composeSetter other.asSetter
+
     /** Compose a PSetter with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]): PSetter[S, T, U, V] =
       setter composeSetter other.asSetter
+
+    /** Compose a PSetter with an [[EPScope]] */
+    def composeEScope[E, U, V](other: EPScope[E, A, B, U, V]): PSetter[S, T, U, V] =
+      setter composeSetter other.asSetter
+  }
+
+  implicit class EitherEPrism[E, F, S, T, A, B](eprism: EPPrism[E \/ F, S, T, A, B]) {
+    def leftError: EPPrism[Option[E], S, T, A, B] =
+      eprism.mapError(_.toEither.left.toOption)
+
+    def rightError: EPPrism[Option[F], S, T, A, B] =
+      eprism.mapError(_.toEither.right.toOption)
+  }
+
+  implicit class EitherEScope[E, F, S, T, A, B](escope: EPScope[E \/ F, S, T, A, B]) {
+    def leftError: EPScope[Option[E], S, T, A, B] =
+      escope.mapError(_.toEither.left.toOption)
+
+    def rightError: EPScope[Option[F], S, T, A, B] =
+      escope.mapError(_.toEither.right.toOption)
   }
 }

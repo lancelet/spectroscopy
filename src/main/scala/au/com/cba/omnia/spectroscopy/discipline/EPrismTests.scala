@@ -36,7 +36,8 @@ object EPrismTests extends Laws {
       "round trip other way"        -> forAll( (a: A) => laws.roundTripOtherWay(a)),
       "modify id = id"              -> forAll( (s: S) => laws.modifyIdentity(s)),
       "modifyF Id = Id"             -> forAll( (s: S) => laws.modifyFId(s)),
-      "modifyOption"                -> forAll( (s: S) => laws.modifyOptionIdentity(s))
+      "modifyOption"                -> forAll( (s: S) => laws.modifyOptionIdentity(s)),
+      "modifyOrError"               -> forAll( (s: S) => laws.modifyOrErrorIdentity(s))
     )
   }
 

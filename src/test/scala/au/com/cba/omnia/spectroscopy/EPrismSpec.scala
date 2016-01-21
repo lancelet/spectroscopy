@@ -22,28 +22,7 @@ import scalaz._, Scalaz._
 
 import au.com.cba.omnia.spectroscopy.law.discipline.EPrismTests
 
-class EPrismSpec extends SpectroscopySuite {
-  // Iso asEPrism
-  checkAll("tuple2Reverse.reverse.asEPrism",
-    EPrismTests(tuple2Reverse[Int, String].reverse.asEPrism))
-
-  // Prism asEPrism
-  checkAll("some.asEPrism",     EPrismTests(some[Int].asEPrism))
-  checkAll("none.asEPrism",     EPrismTests(none[Int].asEPrism))
-  checkAll("stdLeft.asEPrism",  EPrismTests(stdLeft[Int, String].asEPrism))
-  checkAll("stdRight.asEPrism", EPrismTests(stdRight[Int, String].asEPrism))
-
-  // Prism asEPrism asPrism
-  checkAll("some.asEPrism.asPrism",     PrismTests(some[Int].asEPrism.asPrism))
-  checkAll("none.asEPrism.asPrism",     PrismTests(none[Int].asEPrism.asPrism))
-  checkAll("stdLeft.asEPrism.asPrism",  PrismTests(
-    stdLeft[Int, String].asEPrism.asPrism
-  ))
-  checkAll("stdRight.asEPrism.asPrism", PrismTests(
-    stdRight[Int, String].asEPrism.asPrism
-  ))
-
-  // Example EPrism
+object EPrismSpec {
   abstract sealed class MultiValue
   case class IntValue(intValue: Int) extends MultiValue
   case class DoubleValue(doubleValue: Double) extends MultiValue
@@ -85,6 +64,32 @@ class EPrismSpec extends SpectroscopySuite {
 
   implicit val EqualMultiValue = Equal.equalA[MultiValue]
 
+}
+
+class EPrismSpec extends SpectroscopySuite {
+  import EPrismSpec._
+
+  // Iso asEPrism
+  checkAll("tuple2Reverse.reverse.asEPrism",
+    EPrismTests(tuple2Reverse[Int, String].reverse.asEPrism))
+
+  // Prism asEPrism
+  checkAll("some.asEPrism",     EPrismTests(some[Int].asEPrism))
+  checkAll("none.asEPrism",     EPrismTests(none[Int].asEPrism))
+  checkAll("stdLeft.asEPrism",  EPrismTests(stdLeft[Int, String].asEPrism))
+  checkAll("stdRight.asEPrism", EPrismTests(stdRight[Int, String].asEPrism))
+
+  // Prism asEPrism asPrism
+  checkAll("some.asEPrism.asPrism",     PrismTests(some[Int].asEPrism.asPrism))
+  checkAll("none.asEPrism.asPrism",     PrismTests(none[Int].asEPrism.asPrism))
+  checkAll("stdLeft.asEPrism.asPrism",  PrismTests(
+    stdLeft[Int, String].asEPrism.asPrism
+  ))
+  checkAll("stdRight.asEPrism.asPrism", PrismTests(
+    stdRight[Int, String].asEPrism.asPrism
+  ))
+
+  // Example EPrism
   checkAll("_IntValue", EPrismTests(_IntValue))
   checkAll("_IntValue.asPrism", PrismTests(_IntValue.asPrism))
 

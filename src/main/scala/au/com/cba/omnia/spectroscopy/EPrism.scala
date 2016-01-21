@@ -27,15 +27,17 @@ import monocle.{
   PSetter,
   PTraversal
 }
-import scalaz.{Applicative, \/, -\/, \/-}
+import scalaz.{\/, -\/, \/-, Applicative}
 
 /**
  * An [[EPPrism]] can be seen as a pair of functions:
  *  - `getOrModifyWithError: S => (E, T) \/ A`
  *  - `reverseGet          : B => T`
  *
- * [[EPrism]] stands for Error-reporting Prism as its get methods return an
- * error (of type `E`) for values that don't match the Prism.
+ * [[EPrism]] stands for Error-reporting Prism.
+ *
+ * An [[EPPrism]] could also be defined as a PPrism where the getter method
+ * returns an error message if the PPrism isn't matching.
  *
  * [[EPrism]] is a type alias for [[EPPrism]] where the type of a target cannot
  * be modified:
@@ -55,7 +57,7 @@ import scalaz.{Applicative, \/, -\/, \/-}
  * @tparam B the modified target of a [[EPPrism]]
  */
 abstract class EPPrism[E, S, T, A, B] extends Serializable { self =>
-  /** get the target of an [[EPPrism]] or return an error message and the the
+  /** get the target of an [[EPPrism]] or return an error message and the
    *  original value, while allowing the type to change if it does not match */
   def getOrModifyWithError(s: S): (E, T) \/ A
 
@@ -160,6 +162,13 @@ abstract class EPPrism[E, S, T, A, B] extends Serializable { self =>
     )
     )(_.map(reverseGet))
 
+  @inline final def mapError[F](f: E => F): EPPrism[F, S, T, A, B] =
+    EPPrism[F, S, T, A, B](
+      getOrModifyWithError(_).leftMap(et =>
+        et.copy(_1 = f(et._1))
+      )
+    )(reverseGet)
+
   /**************************************************************/
   /** Compose methods between an [[EPPrism]] and another Optics */
   /**************************************************************/
@@ -222,11 +231,27 @@ abstract class EPPrism[E, S, T, A, B] extends Serializable { self =>
       d => self.reverseGet(other.reverseGet(d))
     )
 
-  /** compose a [[EPPrism]] with a PPrism */
-  @inline final def composePrism[C, D](
-    other: PPrism[A, B, C, D]
-  ): PPrism[S, T, C, D] =
-    asPrism composePrism other
+  @inline final def composeEPrismLeft[F, U, V](
+    other: EPPrism[F, A, B, U, V]
+  ): EPPrism[Option[E], S, T, U, V] =
+    (self composeEPrism other).leftError
+
+  @inline final def composeEPrismRight[F, U, V](
+    other: EPPrism[F, A, B, U, V]
+  ): EPPrism[Option[F], S, T, U, V] =
+    (self composeEPrism other).rightError
+
+  /** Compose an [[EPPrism]] with a PPrism */
+  @inline final def composePrism[U, V](
+    other: PPrism[A, B, U, V]
+  ): EPPrism[Option[E], S, T, U, V] =
+    self composeEPrismLeft other.asEPrism
+
+  /** compose an [[EPPrism]] with a PIso */
+  @inline final def composeIso[C, D](
+    other: PIso[A, B, C, D]
+  ): EPPrism[Option[E], S, T, C, D] =
+    self composeEPrismLeft other.asEPrism
   
   /********************************************************************/
   /** Transformation methods to view an [[EPPrism]] as another Optics */

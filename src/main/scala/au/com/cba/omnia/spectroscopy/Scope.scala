@@ -16,8 +16,6 @@
 
 package au.com.cba.omnia.spectroscopy
 
-import scala.language.higherKinds
-
 import monocle.{
   Fold,
   Getter,
@@ -315,6 +313,10 @@ abstract class PScope[S, T, A, B] extends Serializable { self =>
   /******************************************************************/
   /** Transformation methods to view a [[PScope]] as another Optics */
   /******************************************************************/
+
+  /** View a [[PScope]] as an [[EPScope]] */
+  @inline final def asEScope: EPScope[Unit, S, T, A, B] =
+    EPScope[Unit, S, T, A, B](getOrModify(_).leftMap(() -> _))(put(_))
 
   /** View a [[PScope]] as a POptional */
   @inline final def asOptional: POptional[S, T, A, B] =
