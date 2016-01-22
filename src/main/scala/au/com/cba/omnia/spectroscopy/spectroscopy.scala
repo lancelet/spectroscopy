@@ -26,7 +26,7 @@ import monocle.{
   PTraversal,
   PSetter
 }
-import scalaz.{\/, \/-}
+import scalaz.{\/, \/-, Liskov}, Liskov.<~<
 
 package object spectroscopy {
   type Scope[S, A] = PScope[S, S, A, A]
@@ -106,12 +106,18 @@ package object spectroscopy {
      */
 
     /** View a PIso as an [[EPScope]] */
-    def asEScope =
+    def asEScope: EPScope[Unit, S, T, A, B] =
       iso.asScope.asEScope
 
     /** Compose a PIso with an [[EPPrism]] */
-    def composeEPrism[E, U, V](other: EPPrism[E, A, B, U, V]) =
-      iso.asEPrism composeEPrismRight other
+    def composeEPrism[E, U, V](other: EPPrism[E, A, B, U, V]): EPPrism[E, S, T, U, V] =
+      EPPrism[E, S, T, U, V](
+        s => other.getOrModifyWithError(iso.get(s)).leftMap(
+          eb => eb.copy(_2 = iso.reverseGet(eb._2))
+        )
+      )(
+        v => iso.reverseGet(other.reverseGet(v))
+      )
 
     /** Compose a PIso with a [[PScope]] */
     def composeScope[U, V](other: PScope[A, B, U, V]) =
@@ -120,23 +126,31 @@ package object spectroscopy {
     /** Compose a PIso with an [[EPScope]] */
     def composeEScope[E, U, V](other: EPScope[E, A, B, U, V]) =
       iso.asLens composeEScope other
+
+    /** Compose a PIso with a PPrism giving a [[PScope]] */
+    def composePrismAsScope[U, V](other: PPrism[A, B, U, V]): PScope[S, T, U, V] =
+      iso.asLens composePrismAsScope other
+
+    /** Compose a PIso with a PPrism giving a [[PScope]] */
+    def composeEPrismAsEScope[E, U, V](other: EPPrism[E, A, B, U, V]): EPScope[E, S, T, U, V] =
+      iso.asLens composeEPrismAsEScope other
   }
 
   implicit class RichLens[S, T, A, B](lens: PLens[S, T, A, B]) {
     /** View a PLens as a [[PScope]] */
-    def asScope =
+    def asScope: PScope[S, T, A, B] =
       lens composeScope PScope.id[A, B]
 
     /** View a PLens as an [[EPScope]] */
-    def asEScope =
+    def asEScope: EPScope[Unit, S, T, A, B] =
       lens.asScope.asEScope
 
     /** Compose a PLens with an [[EPPrism]] */
-    def composeEPrism[E, U, V](other: EPPrism[E, A, B, U, V]) =
+    def composeEPrism[E, U, V](other: EPPrism[E, A, B, U, V]): POptional[S, T, U, V] =
       lens composePrism other.asPrism
 
     /** Compose a PLens with a [[PScope]] */
-    def composeScope[U, V](other: PScope[A, B, U, V]) =
+    def composeScope[U, V](other: PScope[A, B, U, V]): PScope[S, T, U, V] =
       PScope[S, T, U, V](
         s => other.getOrModify(lens.get(s)).leftMap(lens.set(_)(s))
       )(
@@ -286,12 +300,20 @@ package object spectroscopy {
      */
 
     /** Compose a PLens with an [[EPScope]] */
-    def composeEScope[E, U, V](other: EPScope[E, A, B, U, V]) =
+    def composeEScope[E, U, V](other: EPScope[E, A, B, U, V]): EPScope[E, S, T, U, V] =
       EPScope[E, S, T, U, V](
         s => other.getOrModifyWithError(lens.get(s)).leftMap(et => et.copy(_2 = lens.set(et._2)(s)))
       )(
         v => s => lens.set(other.put(v)(lens.get(s)))(s)
       )
+
+    /** Compose a PLens with a PPrism giving a [[PScope]] */
+    def composePrismAsScope[U, V](other: PPrism[A, B, U, V]): PScope[S, T, U, V] =
+      lens composeScope other.asScope
+
+    /** Compose a PLens with an [[EPPrism]] giving a [[EPScope]] */
+    def composeEPrismAsEScope[E, U, V](other: EPPrism[E, A, B, U, V]): EPScope[E, S, T, U, V] =
+      lens composeEScope other.asEScope
   }
 
   implicit class RichPrism[S, T, A, B](prism: PPrism[S, T, A, B]) {
@@ -400,6 +422,9 @@ package object spectroscopy {
 
     def rightError: EPPrism[Option[F], S, T, A, B] =
       eprism.mapError(_.toEither.right.toOption)
+
+    def mergeError[EE >: E](implicit ev: <~<[F, EE]): EPPrism[EE, S, T, A, B] =
+      eprism.mapError(_.merge)
   }
 
   implicit class EitherEScope[E, F, S, T, A, B](escope: EPScope[E \/ F, S, T, A, B]) {
@@ -408,5 +433,8 @@ package object spectroscopy {
 
     def rightError: EPScope[Option[F], S, T, A, B] =
       escope.mapError(_.toEither.right.toOption)
+
+    def mergeError[EE >: E](implicit ev: <~<[F, EE]): EPScope[EE, S, T, A, B] =
+      escope.mapError(_.merge)
   }
 }

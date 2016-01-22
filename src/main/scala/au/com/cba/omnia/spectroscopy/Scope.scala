@@ -139,6 +139,12 @@ abstract class PScope[S, T, A, B] extends Serializable { self =>
   ): PScope[S, T, U, V] =
     self composePrism other.asPrism
 
+  /** Compose a [[PScope]] with an [[EPPrism]] */
+  @inline final def composeEPrism[E, U, V](
+    other: EPPrism[E, A, B, U, V]
+  ): EPScope[Option[E], S, T, U, V] =
+    self.asEScope composeEPrismRight other
+
   /** Compose a [[PScope]] with a PPrism */
   @inline final def composePrism[U, V](
     other: PPrism[A, B, U, V]

@@ -279,6 +279,18 @@ abstract class EPPrism[E, S, T, A, B] extends Serializable { self =>
   /** view an [[EPPrism]] as a POptional */
   @inline final def asOptional: POptional[S, T, A, B] =
     asPrism asOptional
+
+  /** View an EPPrism as a [[PScope]] */
+  def asScope: PScope[S, T, A, B] =
+    PIso.id[S, T] composePrismAsScope self.asPrism
+
+  /** View an EPPrism as an [[EPScope]] */
+  def asEScope: EPScope[E, S, T, A, B] =
+    EPScope[E, S, T, A, B](
+      s => getOrModifyWithError(s)
+    )(
+      b => _ => reverseGet(b)
+    )
 }
 
 object EPPrism {
