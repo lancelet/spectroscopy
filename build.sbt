@@ -18,6 +18,8 @@ organization := "au.com.cba.omnia"
 name         := "spectroscopy"
 scalaVersion := "2.11.7"
 
+resolvers += DefaultMavenRepository
+
 scalacOptions ++= Seq(
   "-deprecation",
   "-encoding", "UTF-8",
