@@ -7,8 +7,7 @@ cache:
   - $HOME/.ivy2
   - $HOME/.m2
 install:
-# git clone https://github.com/CommBank/ci.git # repo not found
-- tar xzf .ci-a53f524.tgz # git archive -o ci-a53f524.tgz --prefix=ci/ master
+- git clone https://github.com/CommBank/ci.git
 - chmod ugo+x ci/*
 - ci/sbt-setup.sh
 - ci/sbt-setup-version.sh
