@@ -7,14 +7,16 @@ cache:
   - $HOME/.ivy2
   - $HOME/.m2
 install:
-- git clone https://github.com/CommBank/ci.git
-- chmod ugo+x ci/*
-- ci/sbt-setup.sh
-- ci/sbt-setup-version.sh
+- curl https://commbank.artifactoryonline.com/commbank/binaries/ci/ci-$CI_VERSION.tar.gz | tar xz
+- ci/sbt-ci-setup.sh
+- ci/sbt-ci-setup-version.sh
+- cp /etc/sbt/sbtopts .sbtopts; echo "-Dsbt.global.base=$TRAVIS_BUILD_DIR/ci" >> .sbtopts
 script:
-- sbt -Dsbt.global.base=$TRAVIS_BUILD_DIR/ci '; test; assembly' && ci/sbt-deploy.sh
+- sbt test assembly
+  && ci/sbt-ci-deploy.sh maven http://commbank.artifactoryonline.com/commbank ext-releases-local
 after_script:
 - rm -rf ci
 env:
   global:
+    - CI_VERSION=ci-3.6.0-20170704005122-ec7202f
     - secure: "LoRuBT2f3/GbllLzNAN+yBYRjxPfwa5VFJdUJqixYJ1T/C10yL9zePPNqz/hTRvniA/z42LIDJO2BqW9yz37/CvYpXw+zrXATGkExR7KCX5hm5Pxr+L2Fba+VUjj7bgnncW01lLRaUiA1mCNVLDm4VOzj7ZDz4UpFunM7hWeDGj7ev1bey38POFyVmwKXy9uPyqwBhaznoaKRuB97IRXfrdwBGSmXuwSzYCcb/Crr7UIkmKYAYX1/8cdYeIl5yJGGM21afn54cvPXYoAcNIQgNRid1ta+fFI3OX8rxhAPtLZJKLnxjiVNJYk8h94/6KsNZaQ2ETqfHWv/CpgbhZ2wlf0qawtgV4rOUKtONqn1vbxYX+KTVhtoUY0YPAJdve5ZVunXnpgW2+qPOSkDGGWxMAtFpg+//NNX8qoX3mYKflCQ3FqNWuWVdo8WRdHFfj7qHnjjDHJ1tgXwN0Y2FEiKD8mdHMFwsgJfHuQsoBjHqDLY9MIvZqKOuIOLZe1eaQ9Zc8STxGS0li5HvWgBaS8EcUBnmIRA9658mjWvAqYIE1fhvy/cLr+yG6/3Hky4SKJ8PT3vF24F+N+R6fY7RiM0RxaOdhdngXXUpallCzUQrrtOsRnDQihq362hvBT5O0M7eZXI7Z8sU/Ib+niIkVeCjKy0zXM03p8Lib9vbIRTXk="
